@@ -1,0 +1,194 @@
+---
+title: "R Notebook"
+output: html_notebook
+author: "Abie Sprain"
+date: "3/16/2025"
+---
+
+## Data Preperation
+Packages
+```{r}
+library(tidyverse)
+library(scales)
+library(dplyr)
+library(priceR)
+library(ggridges)
+library(sysfonts)
+library(showtext)
+```
+
+Raw Data
+```{r}
+raw = read.csv("top25_per_year.csv")
+collec_data = read.csv("movies_in_specified_collections.csv")
+```
+
+Top 25 Movies Data
+```{r}
+movies <- raw %>% 
+  filter(revenue > 0) %>% 
+  group_by(release_year) %>%
+  arrange(release_year, desc(revenue)) %>%  # Sort by year and descending box office revenue
+  mutate(yearly_rank = row_number()) %>%       # Rank within each year
+  ungroup() %>% 
+  mutate(rev_adj = adjust_for_inflation(revenue, release_year, "US", 2023), # Adjusting for inflation
+         bud_adj = adjust_for_inflation(budget, release_year, "US", 2023),
+         profit = revenue - budget, 
+         profit_adj = rev_adj - bud_adj)
+```
+
+Collection Data
+```{r}
+collec_data = collec_data %>% 
+  group_by(collection_id) %>%                      # Group by collection (franchise)
+  arrange(release_year) %>%                       # Arrange movies within each franchise by year
+  mutate(movie_order = row_number()) %>% 
+  ungroup() %>%
+  mutate(is_sequel = if_else(movie_order > 1, "Yes", "No")) #We know if the movie is a sequel if it comes after the first movie in a collection
+```
+
+Final Dataset
+```{r}
+final.df = left_join(movies, collec_data %>% select(movie_id, is_sequel, movie_order), by = "movie_id")
+#Adding the collection data
+
+final.df <- final.df %>%
+  mutate(across(c(is_sequel), ~ replace_na(., "No")),
+         across(c(movie_order), ~ replace_na(., 1)),
+         budget = ifelse(budget == 0, NA, budget),
+         revenue = ifelse(revenue == 0, NA, revenue),
+         profit = ifelse(profit == 0, NA, profit),
+         bud_adj = ifelse(bud_adj == 0, NA, bud_adj),
+         rev_adj = ifelse(rev_adj == 0, NA, rev_adj),
+         profit_adj = ifelse(profit_adj == 0, NA, profit_adj),
+         vote_average = ifelse(vote_average == 0, NA, vote_average)) #Adding NAs to clean up the data
+```
+
+Sequels Over Time
+```{r}
+sequel_counts <- final.df %>%
+  filter(is_sequel == "Yes") %>%           # Keep only rows where the movie is a sequel
+  group_by(release_year) %>%                # Group by year
+  summarise(sequel_count = n()) %>%         # Count the number of sequels per year
+  ungroup()
+
+```
+
+Setting up fonts
+```{r}
+font_add_google("Courier Prime","courier_prime")
+showtext_auto()
+```
+
+## Sequels Counts
+```{r}
+ggplot(sequel_counts, aes(x = release_year, y = sequel_count)) +
+  geom_bar(stat = "identity", fill = "black") +
+  labs(
+    title = "Number of Sequels Released per Year",
+    x = "Year",
+    y = "Number of Sequels"
+  ) +
+  #theme_minimal() +
+  theme(text = element_text(family = "courier_prime"),
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title.x = element_text(size = 16), 
+    axis.title.y = element_text(size = 16),  
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12))
+```
+Looks like sequels are consistently in the top 25 starting in 1970, so let's only focus on that time period.
+
+```{r}
+ggplot(filter(sequel_counts, release_year > 1969), aes(x = release_year, y = sequel_count)) +
+  geom_bar(stat = "identity", fill = "black") +
+  scale_y_continuous(breaks = seq(0, 18, by = 5), minor_breaks = seq(0, 18, by = 1)) +
+  labs(
+    title = "Number of Sequels Within the Top 25 Movies",
+    x = "Year",
+    y = "Sequel Count",
+    caption = "Department of Cinema Statistics") +
+   theme(
+    panel.background = element_rect(fill="white"),
+    plot.background = element_rect(fill = "white", color = NA),
+    text = element_text(family = "courier_prime"),
+    panel.grid.major = element_line(color = "grey20", linetype = "dashed"),
+    panel.grid.minor = element_line(color = "grey", linetype = "dashed"),
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title.x = element_text(size = 16), 
+    axis.title.y = element_text(size = 16),  
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12))
+```
+
+
+## Movie Density
+```{r}
+yearly.df <- final.df %>%
+  group_by(release_year) %>%
+   summarize(
+    density = mean(movie_order[1:25], na.rm = TRUE)
+) %>%
+  ungroup() %>% 
+  left_join(sequel_counts, by = "release_year") %>% 
+  filter(release_year > 1969)
+
+```
+
+Top 25 Mean Density
+```{r}
+ggplot(yearly.df, aes(x = release_year, y = density)) + 
+  geom_line(size = 1.5) +
+  geom_line(stat = "smooth", method = "loess", se = FALSE, color = "red", alpha = 0.5, size =2) +
+  labs(
+    title = "Average \"Density\" of the Top 25 Movies",
+    x = "Year",
+    y = "Movie Density",
+    caption = "Department of Cinema Statistics") +
+  theme_minimal() +
+  theme(
+    text = element_text(family = "courier_prime"),
+    panel.grid.major = element_line(color = "grey", linetype = "dashed"),
+    panel.grid.minor = element_line(color = "grey", linetype = "dashed"),
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title.x = element_text(size = 16), 
+    axis.title.y = element_text(size = 16),  
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12))
+
+```
+
+Making a CSV for Blender
+```{r}
+blender <- final.df %>% 
+  filter(release_year > 1969) %>% 
+  select(release_year, yearly_rank, movie_order)
+
+write.csv(blender, "blender.csv")
+```
+
+## Bonus Analysis
+Density vs Sequels Released
+```{r}
+ggplot(yearly.df, aes(x = sequel_count, y = density)) +
+  geom_point() +
+  geom_line(stat = "smooth", method = "loess", se = FALSE, color = "red", alpha = 0.5, size =2) +
+  labs(
+    title = "Average \"Density\" vs Number of Sequels",
+    x = "Number of Sequels",
+    y = "Movie Density",
+    caption = "Department of Cinema Statistics") +  
+  theme_minimal() +
+  theme(
+    text = element_text(family = "courier_prime"),
+    panel.grid.major = element_line(color = "grey", linetype = "dashed"),
+    panel.grid.minor = element_line(color = "grey", linetype = "dashed"),
+    plot.title = element_text(size = 20, face = "bold"),
+    axis.title.x = element_text(size = 16), 
+    axis.title.y = element_text(size = 16),  
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12))
+```
+
+
+
