@@ -14,5 +14,10 @@ From here, I brought this data into R.
 
 ### Data Analysis and Visualization
 [Data Analysis Code (R)](movie_sequels.Rmd)
+* ! Need to upload final dataset !
+
+### Visualization in Blender
+* ! Blender CSV !
+* ! Blender Code !
 
 Enjoy!
