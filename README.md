@@ -21,6 +21,7 @@ By the end, you'll have two CSV outputs of this process:
 
 ### Visualization in Blender
 [Blender Code (Python)](blender_code)
-You'll use this, along with [blender_csv.csv](blender_csv.csv) to create a "city of sequels"
+
+You'll use this, along with [blender_csv.csv](blender_csv.csv) to create a "city of sequels" in Blender. 
 
 Enjoy!
