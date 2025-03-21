@@ -62,6 +62,8 @@ final.df <- final.df %>%
          rev_adj = ifelse(rev_adj == 0, NA, rev_adj),
          profit_adj = ifelse(profit_adj == 0, NA, profit_adj),
          vote_average = ifelse(vote_average == 0, NA, vote_average)) #Adding NAs to clean up the data
+
+write.csv(final.df, "top25_sequels.csv")
 ```
 
 Sequels Over Time
@@ -164,7 +166,7 @@ blender <- final.df %>%
   filter(release_year > 1969) %>% 
   select(release_year, yearly_rank, movie_order)
 
-write.csv(blender, "blender.csv")
+write.csv(blender, "blender_csv.csv")
 ```
 
 ## Bonus Analysis
