@@ -1,0 +1,61 @@
+import csv
+import bpy
+
+
+csv_path = "(YOUR FILE PATH)/blender_csv.csv"
+
+# Load movie data from blender_csv.csv
+movie_data = []
+with open(csv_path, newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for row in reader:
+        movie_data.append({
+            "release_year": int(row["release_year"]),
+            "yearly_rank": int(row["yearly_rank"]),
+            "movie_order": int(row["movie_order"])
+        })
+
+print(f"Loaded {len(movie_data)} movies.")
+
+
+# Create materials
+green = bpy.data.materials.new(name="GreenMaterial")
+green.diffuse_color = (.3882, .5922, .3294, 1)  # Green
+
+yellow = bpy.data.materials.new(name="YellowMaterial")
+yellow.diffuse_color = (1, .8275, .0039, 1)  # Yellow
+
+red = bpy.data.materials.new(name="RedMaterial")
+red.diffuse_color = (.8392, .1216, .1216, 1)  # Red
+
+
+# Find unique years and ranks for grid placement
+years = sorted(set(movie["release_year"] for movie in movie_data))
+year_to_x = {year: i for i, year in enumerate(years)}
+
+for movie in movie_data:
+    x = year_to_x[movie["release_year"]]
+    y = movie["yearly_rank"] - 1  # Rank starts at 1
+    height = movie["movie_order"]
+
+
+     # Create a bar (cube) for each year
+    bpy.ops.mesh.primitive_cube_add(size=8)
+    cube = bpy.context.object
+    cube.name = f"Cube_{x}_#{y}"
+        
+    for vert in cube.data.vertices:
+        vert.co[2] += 4 #Setting the vertice to the bottom of the cube
+        
+        # Set the bar's location, scale, and size
+    cube.location = ((x * 16, y * 16, 0))  # Place it along X-axis, with height adjustment
+    cube.scale = (1, 1, height / 2)    # Scale in Z for height based on count
+ 
+    
+    # Assign material based on movie order
+    if movie["movie_order"] == 1:
+        cube.data.materials.append(green)
+    elif 2 <= movie["movie_order"] <= 3:
+        cube.data.materials.append(yellow)
+    else:
+        cube.data.materials.append(red)
